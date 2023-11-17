@@ -1,0 +1,1 @@
+export { IngestInterface } from "./IngestInterface";
