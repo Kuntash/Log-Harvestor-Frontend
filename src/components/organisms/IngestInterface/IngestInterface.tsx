@@ -106,10 +106,14 @@ export const IngestInterface = () => {
             type="submit"
             disabled={createLogMutation?.isLoading as boolean}
           >
-            {createLogMutation?.isLoading && (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            {createLogMutation?.isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Posting
+              </>
+            ) : (
+              "Post"
             )}
-            Post
           </Button>
         </form>
       </FormProvider>
