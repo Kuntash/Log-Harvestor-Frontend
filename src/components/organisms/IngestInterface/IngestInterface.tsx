@@ -1,6 +1,5 @@
 import { Button } from "@main/components/ui/button";
 import {
-  Form,
   FormControl,
   FormDescription,
   FormField,
@@ -8,7 +7,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@main/components/ui/form";
-import { Input } from "@main/components/ui/input";
 import React from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import {
@@ -18,6 +16,11 @@ import {
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Textarea } from "@main/components/ui/textarea";
 import { useUser } from "@clerk/nextjs";
+import { type LogPostSchema } from "@main/types";
+import { useCreateLogMutation } from "@main/hooks/mutations/useCreateLogMutation";
+import { useToast } from "@main/components/ui/use-toast";
+import { Loader2 } from "lucide-react";
+import { type AxiosError } from "axios";
 
 const LogPlaceholder = `{
 	"level": "error",
@@ -32,28 +35,54 @@ const LogPlaceholder = `{
     }
 }
 `;
+
 export const IngestInterface = () => {
   const auth = useUser();
+  const { toast } = useToast();
+  const createLogMutation = useCreateLogMutation();
   const form = useForm<IngestLogFormSchema>({
     resolver: zodResolver(IngestLogFormValidation),
-    defaultValues: {},
+    defaultValues: {
+      log: "",
+    },
   });
 
   const onSubmit = (formData: IngestLogFormSchema) => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
+    if (!auth?.user?.id) {
+      toast({
+        variant: "destructive",
+        description: "User id not found",
+      });
+      return;
+    }
+    const objectLog = JSON.parse(formData?.log) as LogPostSchema;
     const payload = {
       userId: auth?.user?.id,
-      ...formData,
+      ...objectLog,
     };
-    console.log(
-      "🚀 ~ file: IngestInterface.tsx:47 ~ onSubmit ~ payload:",
-      payload,
-    );
+    createLogMutation.mutate(payload, {
+      onSuccess: () => {
+        toast({
+          description: "Successfully ingested the log",
+        });
+        form.setValue("log", "");
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      onError: (error: any) => {
+        toast({
+          variant: "destructive",
+          description: error?.response?.data?.message as string,
+        });
+      },
+    });
 
     /* Mutation to post ingest logs */
   };
 
   return (
-    <div className="flex flex-col items-start gap-y-4 p-3">
+    <div className="flex flex-col items-center gap-y-4 py-3">
       <FormProvider {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <FormField
@@ -61,6 +90,7 @@ export const IngestInterface = () => {
             name="log"
             render={({ field }) => (
               <FormItem>
+                <FormLabel>Log data</FormLabel>
                 <FormControl>
                   <Textarea rows={14} placeholder={LogPlaceholder} {...field} />
                 </FormControl>
@@ -71,7 +101,14 @@ export const IngestInterface = () => {
               </FormItem>
             )}
           />
-          <Button className="mt-2 w-full" type="submit">
+          <Button
+            className="mt-2 w-full"
+            type="submit"
+            disabled={createLogMutation?.isLoading as boolean}
+          >
+            {createLogMutation?.isLoading && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
             Post
           </Button>
         </form>
